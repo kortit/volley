@@ -1,0 +1,143 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Beach volley — are they up for a game?</title>
+<meta name="theme-color" content="#f7f5f0">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <div class="brand"><span aria-hidden="true">🏐</span> Beach volley</div>
+
+  <section id="hero" class="card hero" aria-live="polite">
+    <h1 id="heroTitle">Checking…</h1>
+    <p id="heroText">One moment.</p>
+    <div id="countdown" class="countdown" hidden></div>
+  </section>
+
+  <section id="actionCard" class="card" hidden>
+    <h2>Want to play against them?</h2>
+    <p class="hint">Tap below and they get a notification on their phone straight away. Then just wait at the court.</p>
+    <button id="notifyBtn" class="big" type="button">Tell them we're ready</button>
+    <p id="msg" class="note" hidden></p>
+  </section>
+
+  <section id="offCard" class="card" hidden>
+    <h2>Nothing to do right now</h2>
+    <p class="hint" style="margin-bottom:0">They haven't marked themselves as available, so notifying them wouldn't reach anyone who's coming. Scan again later — this page is always up to date.</p>
+  </section>
+</main>
+
+<footer>Court status updates live · <a href="/admin">team access</a></footer>
+
+<script>
+const el = (id) => document.getElementById(id);
+let status = null;
+let ticker = null;
+
+function fmt(ms) {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`;
+  if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
+  return `${s}s`;
+}
+
+function render() {
+  if (!status) return;
+  const hero = el('hero');
+  const remaining = status.availableUntil ? Date.parse(status.availableUntil) - Date.now() : 0;
+  const live = status.available && remaining > 0;
+
+  hero.className = 'card hero ' + (live ? 'go' : 'stop');
+  el('actionCard').hidden = !live;
+  el('offCard').hidden = live;
+  el('countdown').hidden = !live;
+
+  if (live) {
+    el('heroTitle').textContent = "They're available";
+    el('heroText').textContent = 'The regulars are up for a game right now.';
+    el('countdown').textContent = 'Available for another ' + fmt(remaining);
+  } else {
+    el('heroTitle').textContent = 'Not available';
+    el('heroText').textContent = "Nobody's marked themselves as up for a game at the moment.";
+  }
+
+  // Cooldown stops one impatient group from spamming the phone.
+  const cool = Math.max(0, status.cooldownRemainingMs - (Date.now() - status.fetchedAt));
+  const btn = el('notifyBtn');
+  if (!status.notifyConfigured) {
+    btn.disabled = true;
+    btn.textContent = 'Notifications not set up yet';
+  } else if (cool > 0) {
+    btn.disabled = true;
+    btn.textContent = `Already notified — wait ${fmt(cool)}`;
+  } else if (!btn.dataset.sending) {
+    btn.disabled = false;
+    btn.textContent = "Tell them we're ready";
+  }
+}
+
+function say(text, kind) {
+  const m = el('msg');
+  m.textContent = text;
+  m.className = 'note' + (kind ? ' ' + kind : '');
+  m.hidden = false;
+}
+
+async function refresh() {
+  try {
+    const res = await fetch('/api/status', { cache: 'no-store' });
+    status = await res.json();
+    status.fetchedAt = Date.now();
+    render();
+  } catch {
+    el('heroTitle').textContent = 'No connection';
+    el('heroText').textContent = 'Check your signal and pull to refresh.';
+  }
+}
+
+el('notifyBtn').addEventListener('click', async () => {
+  const btn = el('notifyBtn');
+  btn.dataset.sending = '1';
+  btn.disabled = true;
+  btn.textContent = 'Sending…';
+  try {
+    const res = await fetch('/api/notify', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: '{}',
+    });
+    const body = await res.json();
+    status = { ...body, fetchedAt: Date.now() };
+    delete btn.dataset.sending;
+
+    if (res.ok) {
+      say("Done — they've been notified. Hang around the court, they're on their way.", 'ok');
+    } else if (body.error === 'cooldown') {
+      say('Someone already notified them a moment ago. Give them a few minutes.', null);
+    } else if (body.error === 'not_available') {
+      say("They've just turned their availability off.", 'err');
+    } else if (body.error === 'not_configured') {
+      say('Notifications are not set up on this court yet.', 'err');
+    } else {
+      say("Couldn't send the message. Try again in a moment.", 'err');
+    }
+  } catch {
+    delete btn.dataset.sending;
+    say('Network error — try again.', 'err');
+  }
+  render();
+});
+
+refresh();
+setInterval(refresh, 20000);
+ticker = setInterval(render, 1000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
+</script>
+</body>
+</html>

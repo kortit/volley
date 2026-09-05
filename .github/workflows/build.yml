@@ -1,0 +1,43 @@
+name: build and push image
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/${{ github.repository }}:latest
+            ghcr.io/${{ github.repository }}:${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Tells App Service to pull the new image immediately instead of waiting
+      # for the next restart. The `secrets` context isn't available in a step
+      # `if`, so it is mapped to env first. No secret set yet => step skipped.
+      - name: Trigger App Service redeploy
+        env:
+          WEBHOOK: ${{ secrets.AZURE_WEBHOOK_URL }}
+        if: env.WEBHOOK != ''
+        run: curl -fsSL -X POST "$WEBHOOK"

@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Our availability — beach volley</title>
+<meta name="theme-color" content="#f7f5f0">
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<main>
+  <div class="brand"><span aria-hidden="true">🏐</span> Our availability</div>
+
+  <section id="hero" class="card hero" aria-live="polite">
+    <h1 id="heroTitle">Checking…</h1>
+    <p id="heroText">One moment.</p>
+    <div id="countdown" class="countdown" hidden></div>
+  </section>
+
+  <section class="card">
+    <h2>We're up for a game…</h2>
+    <p class="hint">Pick how long. It switches itself off when the time is up, so you can't accidentally leave it on overnight.</p>
+    <div class="grid">
+      <button type="button" data-hours="1">For 1 hour</button>
+      <button type="button" data-hours="2">For 2 hours</button>
+      <button type="button" data-hours="3">For 3 hours</button>
+      <button type="button" id="untilEvening">Until 20:00</button>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>Done for today</h2>
+    <p class="hint">Turns the court page red immediately. Nobody can notify us.</p>
+    <button id="offBtn" class="big danger" type="button">Set unavailable</button>
+  </section>
+
+  <p id="warn" class="note" hidden></p>
+  <p id="msg" class="note" hidden></p>
+</main>
+
+<footer><a href="/print">Printable QR code for the court</a></footer>
+
+<script>
+const el = (id) => document.getElementById(id);
+let status = null;
+
+function fmt(ms) {
+  const total = Math.max(0, Math.round(ms / 1000));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`;
+  return `${m}m ${String(total % 60).padStart(2, '0')}s`;
+}
+
+function render() {
+  if (!status) return;
+  const remaining = status.availableUntil ? Date.parse(status.availableUntil) - Date.now() : 0;
+  const live = status.available && remaining > 0;
+  el('hero').className = 'card hero ' + (live ? 'go' : 'stop');
+  el('countdown').hidden = !live;
+
+  if (live) {
+    const until = new Date(status.availableUntil);
+    el('heroTitle').textContent = 'Available';
+    el('heroText').textContent = 'Until ' + until.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    el('countdown').textContent = fmt(remaining) + ' left';
+  } else {
+    el('heroTitle').textContent = 'Not available';
+    el('heroText').textContent = 'The court page shows we’re not playing.';
+  }
+
+  if (!status.notifyConfigured) {
+    const w = el('warn');
+    w.textContent = 'Heads up: Telegram is not configured, so the notify button on the court page is disabled. Add TELEGRAM_BOT_TOKEN and TELEGRAM_CHAT_ID in the Azure portal.';
+    w.hidden = false;
+  }
+}
+
+function say(text, kind) {
+  const m = el('msg');
+  m.textContent = text;
+  m.className = 'note' + (kind ? ' ' + kind : '');
+  m.hidden = false;
+}
+
+async function send(payload) {
+  document.querySelectorAll('button').forEach((b) => (b.disabled = true));
+  try {
+    const res = await fetch('/api/availability', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    const body = await res.json();
+    if (!res.ok) {
+      say(body.error || 'Something went wrong.', 'err');
+    } else {
+      status = body;
+      say(body.available ? 'Saved — the court page is live.' : 'Saved — marked unavailable.', 'ok');
+      render();
+    }
+  } catch {
+    say('Network error — not saved.', 'err');
+  }
+  document.querySelectorAll('button').forEach((b) => (b.disabled = false));
+}
+
+document.querySelectorAll('[data-hours]').forEach((btn) => {
+  btn.addEventListener('click', () => send({ hours: Number(btn.dataset.hours) }));
+});
+
+el('untilEvening').addEventListener('click', () => {
+  // Computed in the browser's timezone, sent as an absolute instant,
+  // so the server never has to guess where the court is.
+  const t = new Date();
+  t.setHours(20, 0, 0, 0);
+  if (t.getTime() <= Date.now()) {
+    say('It’s already past 20:00 — use one of the hour buttons instead.', 'err');
+    return;
+  }
+  send({ until: t.toISOString() });
+});
+
+el('offBtn').addEventListener('click', () => send({ off: true }));
+
+(async () => {
+  try {
+    status = await (await fetch('/api/status', { cache: 'no-store' })).json();
+    render();
+  } catch {
+    say('Could not reach the server.', 'err');
+  }
+})();
+setInterval(render, 1000);
+</script>
+</body>
+</html>

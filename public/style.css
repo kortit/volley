@@ -1,0 +1,161 @@
+/* Designed to be read on a phone, in direct sunlight, on sand.
+   Hence: huge type, near-black on near-white, saturated state colours,
+   and tap targets you can hit with wet hands. */
+
+:root {
+  --bg: #f7f5f0;
+  --ink: #12100c;
+  --muted: #5d574c;
+  --line: #d9d3c6;
+  --card: #ffffff;
+  --go: #0a7d33;
+  --go-ink: #063f1a;
+  --go-bg: #dff5e4;
+  --stop: #8a2b2b;
+  --stop-bg: #f3e3e0;
+  --sand: #d98a1f;
+  --focus: #1b5fd9;
+}
+
+* { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ink);
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-text-size-adjust: 100%;
+}
+
+body {
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  padding: 24px 20px 40px;
+}
+
+main {
+  width: 100%;
+  max-width: 460px;
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 15px;
+  font-weight: 650;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+.brand span[aria-hidden] { font-size: 22px; }
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 24px;
+}
+
+/* ---- status hero ---- */
+.hero { text-align: center; padding: 32px 24px; }
+.hero.go   { background: var(--go-bg);   border-color: #a9dcb7; }
+.hero.stop { background: var(--stop-bg); border-color: #e0c0ba; }
+
+.hero h1 {
+  margin: 0 0 8px;
+  font-size: clamp(30px, 9vw, 42px);
+  line-height: 1.05;
+  letter-spacing: -0.02em;
+}
+.hero.go h1   { color: var(--go-ink); }
+.hero.stop h1 { color: var(--stop); }
+
+.hero p { margin: 0; font-size: 17px; line-height: 1.45; color: var(--muted); }
+.hero.go p { color: #16522a; }
+
+.countdown {
+  display: inline-block;
+  margin-top: 14px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.72);
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  font-size: 16px;
+  color: var(--go-ink);
+}
+
+/* ---- buttons ---- */
+button {
+  font: inherit;
+  cursor: pointer;
+  border-radius: 14px;
+  border: 1px solid transparent;
+  transition: transform 0.06s ease, opacity 0.15s ease;
+}
+button:active:not(:disabled) { transform: scale(0.985); }
+button:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.big {
+  width: 100%;
+  padding: 22px 20px;
+  font-size: 21px;
+  font-weight: 750;
+  letter-spacing: -0.01em;
+  background: var(--go);
+  color: #fff;
+  box-shadow: 0 2px 0 #06491e;
+}
+.big.danger { background: var(--stop); box-shadow: 0 2px 0 #5c1c1c; }
+
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.grid button {
+  padding: 18px 12px;
+  font-size: 17px;
+  font-weight: 650;
+  background: #fff;
+  border-color: var(--line);
+  color: var(--ink);
+}
+.grid button:hover:not(:disabled) { border-color: var(--ink); }
+
+h2 {
+  margin: 0 0 4px;
+  font-size: 18px;
+  letter-spacing: -0.01em;
+}
+.hint { margin: 0 0 16px; font-size: 14.5px; line-height: 1.5; color: var(--muted); }
+
+.note {
+  margin: 0;
+  padding: 14px 16px;
+  border-radius: 12px;
+  background: #fff6e2;
+  border: 1px solid #ecd39a;
+  font-size: 14.5px;
+  line-height: 1.5;
+  color: #6b4a08;
+}
+.note.err { background: var(--stop-bg); border-color: #e0c0ba; color: var(--stop); }
+.note.ok  { background: var(--go-bg);  border-color: #a9dcb7; color: var(--go-ink); }
+
+footer {
+  width: 100%;
+  max-width: 460px;
+  margin-top: 28px;
+  font-size: 13px;
+  color: var(--muted);
+  text-align: center;
+}
+footer a { color: var(--muted); }
+
+[hidden] { display: none !important; }

@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Court sign — beach volley QR</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/style.css">
+<style>
+  .sign { text-align: center; padding: 28px 24px; }
+  .sign h1 { margin: 0 0 6px; font-size: 30px; letter-spacing: -0.02em; }
+  .sign p.lead { margin: 0 0 22px; font-size: 17px; color: var(--muted); line-height: 1.45; }
+  .qr { width: min(340px, 78vw); height: auto; margin: 0 auto; display: block; }
+  .qr img { width: 100%; height: auto; display: block; }
+  .url { margin-top: 18px; font-size: 14px; color: var(--muted); word-break: break-all; }
+  @media print {
+    body { padding: 0; background: #fff; }
+    footer, .brand, .noprint { display: none !important; }
+    .card { border: none; }
+    .sign h1 { font-size: 42px; }
+    .sign p.lead { font-size: 22px; }
+    .qr { width: 420px; }
+  }
+</style>
+</head>
+<body>
+<main>
+  <div class="brand"><span aria-hidden="true">🏐</span> Court sign</div>
+  <section class="card sign">
+    <h1>Want a game?</h1>
+    <p class="lead">Scan to see if we're around — and tell us you're ready to play.</p>
+    <div class="qr"><img src="/qr.svg" alt="QR code linking to the court availability page"></div>
+    <p class="url" id="url"></p>
+  </section>
+  <button class="big noprint" type="button" onclick="window.print()">Print this sign</button>
+</main>
+<footer class="noprint"><a href="/admin">Back to availability</a></footer>
+<script>document.getElementById('url').textContent = location.origin;</script>
+</body>
+</html>
