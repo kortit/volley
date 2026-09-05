@@ -26,7 +26,9 @@ let queue = Promise.resolve();
 async function readFromDisk() {
   try {
     const raw = await fs.readFile(FILE, 'utf8');
-    return { ...EMPTY, ...JSON.parse(raw) };
+    // Strip a BOM: Node never writes one, but a hand-edited state.json might have one.
+    const clean = raw.charCodeAt(0) === 0xFEFF ? raw.slice(1) : raw;
+    return { ...EMPTY, ...JSON.parse(clean) };
   } catch (err) {
     if (err.code === 'ENOENT') return { ...EMPTY };
     // A corrupt state file must not take the whole app down - it is one timestamp.

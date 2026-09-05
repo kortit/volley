@@ -1,85 +1,108 @@
 <!doctype html>
-<html lang="en">
+<html lang="fr">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Beach volley — are they up for a game?</title>
+<title>Beach volley — une partie ?</title>
 <meta name="theme-color" content="#f7f5f0">
 <link rel="stylesheet" href="/style.css">
+<style>
+  .confirm-q { margin: 0 0 12px; font-size: 18px; font-weight: 700; text-align: center; }
+  .confirm-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .confirm-row .yes {
+    padding: 20px 12px; font-size: 18px; font-weight: 750;
+    background: var(--go); color: #fff; box-shadow: 0 2px 0 #06491e;
+  }
+  .confirm-row .no {
+    padding: 20px 12px; font-size: 18px; font-weight: 650;
+    background: #fff; border-color: var(--line); color: var(--ink);
+  }
+</style>
 </head>
 <body>
 <main>
   <div class="brand"><span aria-hidden="true">🏐</span> Beach volley</div>
 
   <section id="hero" class="card hero" aria-live="polite">
-    <h1 id="heroTitle">Checking…</h1>
-    <p id="heroText">One moment.</p>
-    <div id="countdown" class="countdown" hidden></div>
+    <h1 id="heroTitle">Un instant…</h1>
+    <p id="heroText">Vérification en cours.</p>
   </section>
 
   <section id="actionCard" class="card" hidden>
-    <h2>Want to play against them?</h2>
-    <p class="hint">Tap below and they get a notification on their phone straight away. Then just wait at the court.</p>
-    <button id="notifyBtn" class="big" type="button">Tell them we're ready</button>
+    <h2>Envie de jouer contre eux ?</h2>
+    <p class="hint">Appuyez ci-dessous : ils reçoivent aussitôt une notification sur leur téléphone. Ensuite, attendez sur le terrain.</p>
+
+    <button id="notifyBtn" class="big" type="button">Prévenir qu'on est prêts</button>
+
+    <div id="confirmBox" hidden>
+      <p class="confirm-q">Envoyer la notification ?</p>
+      <div class="confirm-row">
+        <button id="confirmYes" class="yes" type="button">Oui, envoyer</button>
+        <button id="confirmNo" class="no" type="button">Annuler</button>
+      </div>
+    </div>
+
     <p id="msg" class="note" hidden></p>
   </section>
 
   <section id="offCard" class="card" hidden>
-    <h2>Nothing to do right now</h2>
-    <p class="hint" style="margin-bottom:0">They haven't marked themselves as available, so notifying them wouldn't reach anyone who's coming. Scan again later — this page is always up to date.</p>
+    <h2 id="offTitle">Rien à faire pour le moment</h2>
+    <p class="hint" id="offText" style="margin-bottom:0">Ils ne se sont pas déclarés disponibles. Les prévenir ne servirait à rien. Rescannez plus tard — cette page est toujours à jour.</p>
   </section>
 </main>
 
-<footer>Court status updates live</footer>
+<footer>Statut du terrain mis à jour en direct</footer>
 
 <script>
 const el = (id) => document.getElementById(id);
 let status = null;
-let ticker = null;
-
-function fmt(ms) {
-  const total = Math.max(0, Math.round(ms / 1000));
-  const h = Math.floor(total / 3600);
-  const m = Math.floor((total % 3600) / 60);
-  const s = total % 60;
-  if (h > 0) return `${h}h ${String(m).padStart(2, '0')}m`;
-  if (m > 0) return `${m}m ${String(s).padStart(2, '0')}s`;
-  return `${s}s`;
-}
+let confirming = false;
 
 function render() {
   if (!status) return;
-  const hero = el('hero');
-  const remaining = status.availableUntil ? Date.parse(status.availableUntil) - Date.now() : 0;
-  const live = status.available && remaining > 0;
 
-  hero.className = 'card hero ' + (live ? 'go' : 'stop');
-  el('actionCard').hidden = !live;
-  el('offCard').hidden = live;
-  el('countdown').hidden = !live;
+  // Availability is derived from the expiry, but the remaining time is
+  // deliberately not shown - the button appearing is the whole message.
+  const live = status.available && (!status.availableUntil || Date.parse(status.availableUntil) > Date.now());
+  const cooling = Math.max(0, status.cooldownRemainingMs - (Date.now() - status.fetchedAt)) > 0;
+  const canNotify = live && status.notifyConfigured && !cooling;
+
+  el('hero').className = 'card hero ' + (live ? 'go' : 'stop');
 
   if (live) {
-    el('heroTitle').textContent = "They're available";
-    el('heroText').textContent = 'The regulars are up for a game right now.';
-    el('countdown').textContent = 'Available for another ' + fmt(remaining);
+    el('heroTitle').textContent = 'Ils sont disponibles';
+    el('heroText').textContent = 'Les habitués sont partants pour une partie.';
   } else {
-    el('heroTitle').textContent = 'Not available';
-    el('heroText').textContent = "Nobody's marked themselves as up for a game at the moment.";
+    el('heroTitle').textContent = 'Pas disponibles';
+    el('heroText').textContent = "Personne ne s'est déclaré partant pour le moment.";
   }
 
-  // Cooldown stops one impatient group from spamming the phone.
-  const cool = Math.max(0, status.cooldownRemainingMs - (Date.now() - status.fetchedAt));
-  const btn = el('notifyBtn');
-  if (!status.notifyConfigured) {
-    btn.disabled = true;
-    btn.textContent = 'Notifications not set up yet';
-  } else if (cool > 0) {
-    btn.disabled = true;
-    btn.textContent = `Already notified — wait ${fmt(cool)}`;
-  } else if (!btn.dataset.sending) {
-    btn.disabled = false;
-    btn.textContent = "Tell them we're ready";
+  el('actionCard').hidden = !canNotify;
+  el('offCard').hidden = canNotify;
+
+  // The button is shown only when tapping it would actually do something,
+  // so every other case gets its own explanation in the second card.
+  if (!canNotify) {
+    if (!live) {
+      el('offTitle').textContent = 'Rien à faire pour le moment';
+      el('offText').textContent = "Ils ne se sont pas déclarés disponibles. Les prévenir ne servirait à rien. Rescannez plus tard — cette page est toujours à jour.";
+    } else if (cooling) {
+      el('offTitle').textContent = 'Ils ont déjà été prévenus';
+      el('offText').textContent = "Quelqu'un vient de les prévenir. Restez sur le terrain, ils arrivent.";
+    } else {
+      el('offTitle').textContent = 'Notifications indisponibles';
+      el('offText').textContent = "Les notifications ne sont pas configurées sur ce terrain.";
+    }
+    resetConfirm();
   }
+}
+
+function resetConfirm() {
+  confirming = false;
+  el('confirmBox').hidden = true;
+  el('notifyBtn').hidden = false;
+  el('notifyBtn').disabled = false;
+  el('notifyBtn').textContent = "Prévenir qu'on est prêts";
 }
 
 function say(text, kind) {
@@ -90,22 +113,36 @@ function say(text, kind) {
 }
 
 async function refresh() {
+  // Never yank the UI out from under someone mid-confirmation.
+  if (confirming) return;
   try {
     const res = await fetch('/api/status', { cache: 'no-store' });
     status = await res.json();
     status.fetchedAt = Date.now();
     render();
   } catch {
-    el('heroTitle').textContent = 'No connection';
-    el('heroText').textContent = 'Check your signal and pull to refresh.';
+    el('heroTitle').textContent = 'Pas de connexion';
+    el('heroText').textContent = 'Vérifiez votre réseau et rafraîchissez la page.';
   }
 }
 
-el('notifyBtn').addEventListener('click', async () => {
-  const btn = el('notifyBtn');
-  btn.dataset.sending = '1';
-  btn.disabled = true;
-  btn.textContent = 'Sending…';
+el('notifyBtn').addEventListener('click', () => {
+  confirming = true;
+  el('msg').hidden = true;
+  el('notifyBtn').hidden = true;
+  el('confirmBox').hidden = false;
+});
+
+el('confirmNo').addEventListener('click', () => {
+  resetConfirm();
+  refresh();
+});
+
+el('confirmYes').addEventListener('click', async () => {
+  el('confirmYes').disabled = true;
+  el('confirmNo').disabled = true;
+  el('confirmYes').textContent = 'Envoi…';
+
   try {
     const res = await fetch('/api/notify', {
       method: 'POST',
@@ -113,30 +150,36 @@ el('notifyBtn').addEventListener('click', async () => {
       body: '{}',
     });
     const body = await res.json();
+    confirming = false;
     status = { ...body, fetchedAt: Date.now() };
-    delete btn.dataset.sending;
 
     if (res.ok) {
-      say("Done — they've been notified. Hang around the court, they're on their way.", 'ok');
+      say("C'est fait — ils ont été prévenus. Restez sur le terrain, ils arrivent.", 'ok');
     } else if (body.error === 'cooldown') {
-      say('Someone already notified them a moment ago. Give them a few minutes.', null);
+      say("Quelqu'un vient déjà de les prévenir. Patientez quelques minutes.", null);
     } else if (body.error === 'not_available') {
-      say("They've just turned their availability off.", 'err');
+      say("Ils viennent de se rendre indisponibles.", 'err');
     } else if (body.error === 'not_configured') {
-      say('Notifications are not set up on this court yet.', 'err');
+      say("Les notifications ne sont pas configurées sur ce terrain.", 'err');
     } else {
-      say("Couldn't send the message. Try again in a moment.", 'err');
+      say("Impossible d'envoyer le message. Réessayez dans un instant.", 'err');
     }
   } catch {
-    delete btn.dataset.sending;
-    say('Network error — try again.', 'err');
+    confirming = false;
+    say('Erreur réseau — réessayez.', 'err');
   }
+
+  el('confirmYes').disabled = false;
+  el('confirmNo').disabled = false;
+  el('confirmYes').textContent = 'Oui, envoyer';
+  el('confirmBox').hidden = true;
+  el('notifyBtn').hidden = false;
+  el('notifyBtn').textContent = "Prévenir qu'on est prêts";
   render();
 });
 
 refresh();
 setInterval(refresh, 20000);
-ticker = setInterval(render, 1000);
 document.addEventListener('visibilitychange', () => { if (!document.hidden) refresh(); });
 </script>
 </body>
