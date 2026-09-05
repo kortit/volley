@@ -119,7 +119,7 @@ app.get('/qr.svg', async (req, res) => {
   try {
     const svg = await QRCode.toString(target, {
       type: 'svg',
-      errorCorrectionLevel: 'M',
+      errorCorrectionLevel: 'Q',
       margin: 1,
     });
     res.set('content-type', 'image/svg+xml');

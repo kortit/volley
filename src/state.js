@@ -10,6 +10,7 @@ const DATA_DIR =
 
 const FILE = path.join(DATA_DIR, 'state.json');
 const TMP = FILE + '.tmp';
+const CACHE_TTL_MS = 1000;
 
 const EMPTY = {
   availableUntil: null, // ISO string, or null when not available
@@ -18,17 +19,17 @@ const EMPTY = {
 };
 
 let cache = null;
+let cachedAt = 0;
 // Serialise writes so two concurrent requests can't interleave read/modify/write.
 let queue = Promise.resolve();
 
 async function readFromDisk() {
   try {
     const raw = await fs.readFile(FILE, 'utf8');
-    const parsed = JSON.parse(raw);
-    return { ...EMPTY, ...parsed };
+    return { ...EMPTY, ...JSON.parse(raw) };
   } catch (err) {
     if (err.code === 'ENOENT') return { ...EMPTY };
-    // A corrupt state file must not take the whole app down - it is one boolean.
+    // A corrupt state file must not take the whole app down - it is one timestamp.
     console.error(`[state] could not read ${FILE}, starting fresh:`, err.message);
     return { ...EMPTY };
   }
@@ -40,15 +41,22 @@ async function writeToDisk(state) {
   await fs.rename(TMP, FILE); // atomic, so a crash mid-write can't truncate the file
 }
 
+// Re-reads from disk once a second rather than trusting an in-process cache
+// forever: if App Service ever runs more than one instance they share /home,
+// and a stale cache would let the two disagree about availability.
 export async function getState() {
-  if (!cache) cache = await readFromDisk();
+  if (!cache || Date.now() - cachedAt > CACHE_TTL_MS) {
+    cache = await readFromDisk();
+    cachedAt = Date.now();
+  }
   return { ...cache };
 }
 
 export async function updateState(patch) {
   queue = queue.then(async () => {
-    if (!cache) cache = await readFromDisk();
-    cache = { ...cache, ...patch, updatedAt: new Date().toISOString() };
+    const current = await readFromDisk();
+    cache = { ...current, ...patch, updatedAt: new Date().toISOString() };
+    cachedAt = Date.now();
     await writeToDisk(cache);
   });
   await queue;
