@@ -4,9 +4,27 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Beach Volley Leucate — une partie ?</title>
-<meta name="theme-color" content="#f7f5f0">
+<meta name="theme-color" content="#64788a">
+<link rel="preload" as="image" href="/court.jpg">
 <link rel="stylesheet" href="/style.css">
 <style>
+  /* The court itself, behind everything. The photo is pale sand under pale
+     sky, so a scrim is doing real work here: without it the white brand
+     text disappears and the card stops reading as a separate surface. */
+  html {
+    min-height: 100%;
+    background:
+      linear-gradient(180deg, rgba(6,20,34,0.50) 0%, rgba(6,20,34,0.28) 42%, rgba(6,20,34,0.62) 100%),
+      url("/court.jpg") center / cover no-repeat;
+    background-color: #b8c4cc; /* sky-ish, shows only while the photo loads */
+  }
+  /* style.css paints an opaque body, which would sit on top of the photo. */
+  body { background: transparent; }
+
+  .brand { color: #fff; text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55); }
+  .card { box-shadow: 0 12px 34px rgba(0, 0, 0, 0.30); }
+  footer { color: rgba(255, 255, 255, 0.92); text-shadow: 0 1px 4px rgba(0, 0, 0, 0.55); }
+
   /* One card carries the whole page, so the message itself has to be the
      headline - sized to stay readable at arm's length in the sun. */
   .lead {

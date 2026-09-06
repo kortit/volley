@@ -2,3 +2,6 @@ node_modules/
 data/
 .env
 *.log
+
+# original camera photo - the optimised copy lives at public/court.jpg
+20260906_192437.jpg
