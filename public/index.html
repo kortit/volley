@@ -3,11 +3,25 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Beach volley — une partie ?</title>
+<title>Beach Volley Leucate — une partie ?</title>
 <meta name="theme-color" content="#f7f5f0">
 <link rel="stylesheet" href="/style.css">
 <style>
-  .confirm-q { margin: 0 0 12px; font-size: 18px; font-weight: 700; text-align: center; }
+  /* One card carries the whole page, so the message itself has to be the
+     headline - sized to stay readable at arm's length in the sun. */
+  .lead {
+    margin: 0;
+    font-size: clamp(20px, 5.6vw, 25px);
+    line-height: 1.42;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .hero.go .lead   { color: var(--go-ink); }
+  .hero.stop .lead { color: var(--stop); }
+
+  #actions { margin-top: 26px; }
+
+  .confirm-q { margin: 0 0 12px; font-size: 18px; font-weight: 700; }
   .confirm-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
   .confirm-row .yes {
     padding: 20px 12px; font-size: 18px; font-weight: 750;
@@ -17,37 +31,29 @@
     padding: 20px 12px; font-size: 18px; font-weight: 650;
     background: #fff; border-color: var(--line); color: var(--ink);
   }
+  #msg { margin-top: 20px; text-align: left; }
 </style>
 </head>
 <body>
 <main>
-  <div class="brand"><span aria-hidden="true">🏐</span> Beach volley</div>
+  <div class="brand"><span aria-hidden="true">🏐</span> Beach Volley Leucate</div>
 
-  <section id="hero" class="card hero" aria-live="polite">
-    <h1 id="heroTitle">Un instant…</h1>
-    <p id="heroText">Vérification en cours.</p>
-  </section>
+  <section id="card" class="card hero" aria-live="polite">
+    <p id="cardText" class="lead">Un instant…</p>
 
-  <section id="actionCard" class="card" hidden>
-    <h2>Envie de jouer contre eux ?</h2>
-    <p class="hint">Appuyez ci-dessous : ils reçoivent aussitôt une notification sur leur téléphone. Ensuite, attendez sur le terrain.</p>
+    <div id="actions" hidden>
+      <button id="notifyBtn" class="big" type="button">Nous prévenir</button>
 
-    <button id="notifyBtn" class="big" type="button">Prévenir qu'on est prêts</button>
-
-    <div id="confirmBox" hidden>
-      <p class="confirm-q">Envoyer la notification ?</p>
-      <div class="confirm-row">
-        <button id="confirmYes" class="yes" type="button">Oui, envoyer</button>
-        <button id="confirmNo" class="no" type="button">Annuler</button>
+      <div id="confirmBox" hidden>
+        <p class="confirm-q">Envoyer la notification ?</p>
+        <div class="confirm-row">
+          <button id="confirmYes" class="yes" type="button">Oui, envoyer</button>
+          <button id="confirmNo" class="no" type="button">Annuler</button>
+        </div>
       </div>
     </div>
 
     <p id="msg" class="note" hidden></p>
-  </section>
-
-  <section id="offCard" class="card" hidden>
-    <h2 id="offTitle">Rien à faire pour le moment</h2>
-    <p class="hint" id="offText" style="margin-bottom:0">Ils ne se sont pas déclarés disponibles. Les prévenir ne servirait à rien. Rescannez plus tard — cette page est toujours à jour.</p>
   </section>
 </main>
 
@@ -55,44 +61,34 @@
 
 <script>
 const el = (id) => document.getElementById(id);
+
+const TEXT_AVAILABLE = "On est bien juste à coté et dispo pour jouer, Si vous continuez on recevra une notification et on vient dans les prochaines minutes.";
+const TEXT_UNAVAILABLE = "Désolé on est pas dans le coin pour le moment, essayez plus tard.";
+const TEXT_ALREADY = "On vient d'être prévenus, on arrive dans les prochaines minutes.";
+
 let status = null;
 let confirming = false;
 
 function render() {
   if (!status) return;
 
-  // Availability is derived from the expiry, but the remaining time is
-  // deliberately not shown - the button appearing is the whole message.
+  // Availability comes from the stored expiry, but no time is ever shown -
+  // the button being there is the whole message.
   const live = status.available && (!status.availableUntil || Date.parse(status.availableUntil) > Date.now());
   const cooling = Math.max(0, status.cooldownRemainingMs - (Date.now() - status.fetchedAt)) > 0;
   const canNotify = live && status.notifyConfigured && !cooling;
 
-  el('hero').className = 'card hero ' + (live ? 'go' : 'stop');
+  el('card').className = 'card hero ' + (canNotify || (live && cooling) ? 'go' : 'stop');
+  el('actions').hidden = !canNotify;
 
-  if (live) {
-    el('heroTitle').textContent = 'Ils sont disponibles';
-    el('heroText').textContent = 'Les habitués sont partants pour une partie.';
+  if (canNotify) {
+    el('cardText').textContent = TEXT_AVAILABLE;
+  } else if (live && cooling) {
+    el('cardText').textContent = TEXT_ALREADY;
   } else {
-    el('heroTitle').textContent = 'Pas disponibles';
-    el('heroText').textContent = "Personne ne s'est déclaré partant pour le moment.";
-  }
-
-  el('actionCard').hidden = !canNotify;
-  el('offCard').hidden = canNotify;
-
-  // The button is shown only when tapping it would actually do something,
-  // so every other case gets its own explanation in the second card.
-  if (!canNotify) {
-    if (!live) {
-      el('offTitle').textContent = 'Rien à faire pour le moment';
-      el('offText').textContent = "Ils ne se sont pas déclarés disponibles. Les prévenir ne servirait à rien. Rescannez plus tard — cette page est toujours à jour.";
-    } else if (cooling) {
-      el('offTitle').textContent = 'Ils ont déjà été prévenus';
-      el('offText').textContent = "Quelqu'un vient de les prévenir. Restez sur le terrain, ils arrivent.";
-    } else {
-      el('offTitle').textContent = 'Notifications indisponibles';
-      el('offText').textContent = "Les notifications ne sont pas configurées sur ce terrain.";
-    }
+    // Unavailable, and also the case where notifications are broken: from
+    // out here the outcome is identical, and /admin already warns the team.
+    el('cardText').textContent = TEXT_UNAVAILABLE;
     resetConfirm();
   }
 }
@@ -102,7 +98,7 @@ function resetConfirm() {
   el('confirmBox').hidden = true;
   el('notifyBtn').hidden = false;
   el('notifyBtn').disabled = false;
-  el('notifyBtn').textContent = "Prévenir qu'on est prêts";
+  el('notifyBtn').textContent = 'Nous prévenir';
 }
 
 function say(text, kind) {
@@ -113,16 +109,16 @@ function say(text, kind) {
 }
 
 async function refresh() {
-  // Never yank the UI out from under someone mid-confirmation.
-  if (confirming) return;
+  if (confirming) return; // don't yank the UI away mid-confirmation
   try {
     const res = await fetch('/api/status', { cache: 'no-store' });
     status = await res.json();
     status.fetchedAt = Date.now();
     render();
   } catch {
-    el('heroTitle').textContent = 'Pas de connexion';
-    el('heroText').textContent = 'Vérifiez votre réseau et rafraîchissez la page.';
+    el('card').className = 'card hero stop';
+    el('cardText').textContent = 'Pas de connexion. Vérifiez votre réseau et rafraîchissez la page.';
+    el('actions').hidden = true;
   }
 }
 
@@ -154,13 +150,13 @@ el('confirmYes').addEventListener('click', async () => {
     status = { ...body, fetchedAt: Date.now() };
 
     if (res.ok) {
-      say("C'est fait — ils ont été prévenus. Restez sur le terrain, ils arrivent.", 'ok');
+      say("C'est fait, on a été prévenus. On arrive !", 'ok');
     } else if (body.error === 'cooldown') {
-      say("Quelqu'un vient déjà de les prévenir. Patientez quelques minutes.", null);
+      say("On vient déjà d'être prévenus, on arrive.", null);
     } else if (body.error === 'not_available') {
-      say("Ils viennent de se rendre indisponibles.", 'err');
+      say('On vient de se rendre indisponibles, désolé.', 'err');
     } else if (body.error === 'not_configured') {
-      say("Les notifications ne sont pas configurées sur ce terrain.", 'err');
+      say("Les notifications ne sont pas configurées.", 'err');
     } else {
       say("Impossible d'envoyer le message. Réessayez dans un instant.", 'err');
     }
@@ -174,7 +170,7 @@ el('confirmYes').addEventListener('click', async () => {
   el('confirmYes').textContent = 'Oui, envoyer';
   el('confirmBox').hidden = true;
   el('notifyBtn').hidden = false;
-  el('notifyBtn').textContent = "Prévenir qu'on est prêts";
+  el('notifyBtn').textContent = 'Nous prévenir';
   render();
 });
 
